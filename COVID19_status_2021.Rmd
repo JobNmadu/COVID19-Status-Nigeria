@@ -66,11 +66,6 @@ forcaststarts <- paste("Starting from", dayfo, "to", lastdayfo,
 ```
 
 
-```{r scroll bar, echo = FALSE}
-gotop::use_gotop()
-```
-
-
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
 png("img/numstates.png", width=1200, height=800)
@@ -147,23 +142,23 @@ upper = 37
 x = fitted.values(smooth.spline(DDPtable$Series, DDPtable$Total))
 zz <- scaled_logit(x = x , lower = lower, upper = upper)
 SmoothF  <- forecast::forecast(zz, h = length(niz$Date))
-SmoothFFi <- inv_scaled_logit(x = SmoothF$mean , lower = lower, upper = upper)
+SmoothFF2 <- constrained_forecast(Model = SmoothF, lower, upper)
 
  x = fitted.values(lm(DDPtable$Total ~ bs(DDPtable$Series, knots = NULL)))
  zz <- scaled_logit(x = x , lower = lower, upper = upper)
  NullF <- forecast::forecast(zz, h = length(niz$Date))
- NullFFi <- inv_scaled_logit(x = NullF$mean , lower = lower, upper = upper)
+ NullFF2 <- constrained_forecast(Model = NullF, lower, upper)
  
  x = fitted.values(lm(DDPtable$Total ~ bs(DDPtable$Series, knots = c(30, 247, 420))))
  zz <- scaled_logit(x = x , lower = lower, upper = upper)
  KnotsF  <- forecast::forecast(zz, h = length(niz$Date))
- KnotsFFi <- inv_scaled_logit(x = KnotsF$mean , lower = lower, upper = upper)
+ KnotsFF2 <- constrained_forecast(Model = KnotsF, lower, upper)
+ 
 LinearF  <- forecast::forecast(fitted.values(lm(Total ~ Series, data = DDPtable)), h = length(niz$Date))
 SemilogF  <- forecast::forecast(fitted.values(lm(Total ~ log(Series), data = DDPtable)), h = length(niz$Date))
 GrowthF  <- forecast::forecast(fitted.values(lm(log(Total) ~ Series, data = DDPtable)), h = length(niz$Date))
 
-KnotsFF <- as.data.frame(cbind("Date" = Dsf, "Day" = niz$Day, "Smooth spline" = SmoothFFi, "Splines without knots" = NullFFi,  "Splines with knots" = KnotsFFi, Linear = LinearF[["mean"]], Semilog = SemilogF[["mean"]], Growth = GrowthF[["mean"]]))
-
+KnotsFF <- as.data.frame(cbind("Date" = Dsf, "Day" = niz$Day, "Smooth spline 80%" = SmoothFF2$Lower80, "Smooth spline 95%"= SmoothFF2$Upper95, "Splines without knots 80%" = NullFF2$Lower80, "Splines without knots 95%"= NullFF2$Upper95,  "Splines with knots 80%" = KnotsFF2$Lower80, "Splines with knots 95%"= KnotsFF2$Upper95, Linear = LinearF[["mean"]], Semilog = SemilogF[["mean"]], Growth = GrowthF[["mean"]]))
 KnotsFF$Date <- as.Date(KnotsFF$Date)
 
 KnotsFF1 <- KnotsFF %>%
@@ -321,25 +316,24 @@ check_model(fitpi)
 ```
 
 
-
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
  kk  <- forecast::forecast(fitted.values(fit), 
-                           h = length(niz$Date))
+                           h = length(Dsf))
  kk0 <- forecast::forecast(fitted.values(fit0),
-                           h = length(niz$Date))
+                           h = length(Dsf))
  kk1 <- forecast::forecast(fitted.values(fit1),
-                           h = length(niz$Date))
+                           h = length(Dsf))
  kk10 <- forecast::forecast(fitted.values(fitpi),
-                            h = length(niz$Date))
- kk2 <- forecast::forecast(fita, h = length(niz$Date))
- kk31 <- forecast::forecast(kk30, h = length(niz$Date))
+                            h = length(Dsf))
+ kk2 <- forecast::forecast(fita, h = length(Dsf))
+ kk31 <- forecast::forecast(kk30, h = length(Dsf))
  kk41 <- forecast::forecast(fitted.values(kk40),
-                            h = length(niz$Date))
+                            h = length(Dsf))
  kk61 <- forecast::forecast(fitted.values(kk60),
-                            h = length(niz$Date))
+                            h = length(Dsf))
  
- KK <- as.data.frame(cbind("Date" = niz$Date,"Day" = niz$Day, "Without Knots" = kk0[["mean"]], "Smooth spline" = kk1[["mean"]],  "With Knots" = kk[["mean"]], "Polynomial" = kk10[["mean"]], "Lower ARIMA" = kk2[["lower"]], "Upper ARIMA" = kk2[["upper"]]))
+ KK <- as.data.frame(cbind("Date" = Dsf,"Day" = 1:length(Dsf), "Without Knots" = kk0[["mean"]], "Smooth spline" = kk1[["mean"]],  "With Knots" = kk[["mean"]], "Polynomial" = kk10[["mean"]], "Lower ARIMA" = kk2[["lower"]], "Upper ARIMA" = kk2[["upper"]]))
 
  KK <- KK[,-c(7,9)]
 names(KK) <- c("Date", "Day", "Without Knots", "Smooth spline", "With Knots", "Polynomial", "Lower ARIMA", "Upper ARIMA") 
@@ -372,7 +366,7 @@ ESS  <- sum(KK$`Essembled with equal weight`)
 ESM  <- sum(KK$`Essembled based on weight`)
 ESMS  <- sum(KK$`Essembled based on summed weight`)
 
-kk51 <- forecast::forecast(P_weight, h = length(niz$Date))
+kk51 <- forecast::forecast(P_weight, h = length(Dsf))
 KK$`Essembled based on weight of fit` <-
   kk51[["mean"]]
 ESF  <- sum(KK$`Essembled based on weight of fit`)
@@ -448,6 +442,30 @@ KK1$Date <- as.Date(KK1$Date)
 
 ![](img/state09.svg)
 
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+png("img/numstatesFFfs.png", width=1200, height=800)
+
+ggplot(ForecastontheLastDay) +
+ aes(x = Model, fill = Model, weight = Forecast) +
+ geom_bar() +
+ scale_fill_hue(direction = 1) +
+ labs(x = "Model", y = "Forecast on the last day") +
+ theme_minimal() +
+  coord_flip()+
+ theme(legend.position = "none")+
+   labs(title = "\n  \n",
+        subtitle = " ",
+        caption = "Graphics: Job Nmadu | @JobNmadu  \n Source: https://covid19.ncdc.gov.ng/")
+#ggsave("img/numstatesFFf.png", plot = plotggf)
+
+invisible(dev.off())
+```
+
+![](img/numstatesFFfs.png)
+
+
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
 Linear <-  lm(Case ~      Day, data = niz)
@@ -510,3 +528,172 @@ ggsave("img/LinearG1.png", plot = LinearG1)
 ![](img/LinearG.png)  
 
 ![](img/LinearG1.png)
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+lower = min(niz$Case)
+  upper = max(niz$Case)
+
+  kkF  <- forecast::forecast(scaled_logit(x = fitted.values(fit),
+                                        lower = lower, upper = upper), 
+                           h = length(Dsf))
+  kkc <- constrained_forecast(Model = kkF, lower, upper)
+ 
+  kk0F <- forecast::forecast(scaled_logit(x = fitted.values(fit0),
+                                        lower = lower, upper = upper),
+                           h = length(Dsf))
+  kk0c <- constrained_forecast(Model = kk0F, lower, upper)
+ 
+  kk1F <- forecast::forecast(scaled_logit(x = fitted.values(fit1), 
+                                        lower = lower, upper = upper),
+                           h = length(Dsf))
+  kk1c <- constrained_forecast(Model = kk1F, lower, upper)
+
+  kk10F <- forecast::forecast(scaled_logit(x = fitted.values(fitpi),
+                                         lower = lower, upper = upper),
+                            h = length(Dsf))
+  kk10c <- constrained_forecast(Model = kk10F, lower, upper)
+
+  kk2F <- forecast::forecast(scaled_logit(x = fita[["fitted"]], 
+                                          lower = lower,
+                                        upper = upper), h = length(Dsf))
+  kk2c <- constrained_forecast(Model = kk2F, lower, upper)
+
+  kk31F <- forecast::forecast(scaled_logit(x = kk30, lower = lower, 
+                                         upper = upper), 
+                            h = length(Dsf))
+  kk31c <- constrained_forecast(Model = kk31F, lower, upper)
+
+  kk41F <- forecast::forecast(scaled_logit(x = fitted.values(kk40),
+                                         lower = lower, upper = upper),
+                            h = length(Dsf))
+  kk41c <- constrained_forecast(Model = kk41F, lower, upper)
+
+  kk61F <- forecast::forecast(scaled_logit(x = fitted.values(kk60), 
+                                         lower = lower, upper = upper),
+                            h = length(Dsf))
+  kk61c <- constrained_forecast(Model = kk61F, lower, upper)
+ 
+ KK <- as.data.frame(cbind("Date" = Dsf, "Day" = 1:length(Dsf))) 
+ KK$`Smooth spline 80%` = kk1c$Lower80
+ KK$`Smooth spline 95%` = kk1c$Upper95
+ KK$`Without knots 80%` = kk0c$Lower80
+ KK$`Without knots 95%` = kk0c$Upper95
+ KK$`With knots 80%` = kkc$Lower80
+ KK$`With knots 95%` = kkc$Upper95
+ KK$`Polynomial 80%` = kk10c$Lower80
+ KK$`Polynomial 95%` = kk10c$Upper95
+ KK$`ARIMA 80%` = kk2c$Lower80
+ KK$`ARIMA 95%` = kk2c$Upper95
+ #KK22 <- KK22[-c(1:118), ]
+ KK$Date <- as.Date(KK$Date)
+
+ #KK <- KK[,-c(7,9)]
+#names(KK) <- c("Date", "Day", "Without Knots", "Smooth spline", "With Knots", "Polynomial", "Lower ARIMA", "Upper ARIMA") 
+
+WK    <- sum(KK$`Without knots 80%`)
+WK1   <- sum(KK$`Without knots 95%`)
+WKs   <- sum(KK$`With knots 80%`)
+WKs1  <- sum(KK$`With knots 95%`)
+SMsp  <- sum(KK$`Smooth spline 80%`)
+SMsp1 <- sum(KK$`Smooth spline 95%`)
+LA    <- sum(KK$`ARIMA 80%`)  
+UA    <- sum(KK$`ARIMA 95%`)  
+POL   <- sum(KK$`Polynomial 80%`)
+POL1  <- sum(KK$`Polynomial 95%`)
+
+DDf <- c("Without knots 80%", "Without knots 95%", "Smooth Spline 80%",
+         "Smooth Spline 95%", "With knots 80%", "With knots 95%", 
+         "Quadratic Polynomial 80%", "Quadratic Polynomial 95%",
+         "ARIMA 80%", "ARIMA 95%",
+         "Essembled with equal weight 80%",
+         "Essembled with equal weight 95%",
+         "Essembled based on weight 80%", "Essembled based on weight 95%",
+         "Essembled based on summed weight 80%",
+         "Essembled based on summed weight 95%",
+         "Essembled based on weight of fit 80%", 
+         "Essembled based on weight of fit 95%" )
+
+KK$`Essembled with equal weight 80%` <- kk31c$Lower80
+KK$`Essembled with equal weight 95%` <- kk31c$Upper95
+KK$`Essembled based on weight 80%` <- kk41c$Lower80
+KK$`Essembled based on weight 95%` <- kk41c$Upper95
+KK$`Essembled based on summed weight 80%` <- kk61c$Lower80
+KK$`Essembled based on summed weight 95%` <- kk61c$Upper95
+ESS    <- sum(KK$`Essembled with equal weight 80%`)
+ESS1   <- sum(KK$`Essembled with equal weight 95%`)
+ESM    <- sum(KK$`Essembled based on weight 80%`)
+ESM1   <- sum(KK$`Essembled based on weight 95%`)
+ESMS   <- sum(KK$`Essembled based on summed weight 80%`)
+ESMS1  <- sum(KK$`Essembled based on summed weight 95%`)
+
+kk51F <- forecast::forecast(scaled_logit(x = P_weight,
+                                         lower = lower, upper = upper),
+                            h = length(Dsf))
+kk51c <- constrained_forecast(Model = kk51F, lower, upper)
+  
+KK$`Essembled based on weight of fit 80%` <- kk51c$Lower80
+KK$`Essembled based on weight of fit 95%` <- kk51c$Upper95
+ESF  <- sum(KK$`Essembled based on weight of fit 80%`)
+ESF1  <- sum(KK$`Essembled based on weight of fit 95%`)
+RMSE$`Essembled with equal weight` <- ModelMetrics::rmse(niz$Case, kk30)
+RMSE$`Essembled based on weight` <- performance_rmse(kk40)
+RMSE$`Essembled based on summed weight` <- performance_rmse(kk60)
+RMSE$`Essembled based on weight of fit` <- ModelMetrics::rmse(niz$Case, P_weight)
+Forcasts <- colSums(KK[,-c(1,2)])
+RMSE_f <- as.data.frame(cbind("Model" = DDf,
+                              "Confirmed cases" =
+                                comma(round(Forcasts, 0))))
+
+ForecastontheLastDay <- as.data.frame(t(KK[length(KK$Date), c(3:20)]))
+ForecastontheLastDay <- cbind(DDf, ForecastontheLastDay)
+names(ForecastontheLastDay) <- c("Model", "Forecast")
+ForecastontheLastDay <- ForecastontheLastDay[order(-ForecastontheLastDay$Forecast),]
+ForecastontheLastDay$Model <- factor(ForecastontheLastDay$Model, levels = ForecastontheLastDay$Model)
+```
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+png("img/numstatesFFx.png", width=1200, height=800)
+
+KK1 <- KK %>%
+   pivot_longer(-c(Date, Day), names_to = "Models",
+                values_to = "Forecast")
+KK1$Date <- as.Date(KK1$Date) 
+
+ ggplot(KK1) +
+   aes(x = Date, y = Forecast, colour = Models, group = Models) +
+   geom_line(size = 1L) +
+   scale_color_hue() +
+   theme_bw() +
+   labs(title = "\n  \n",
+        subtitle = " ",
+        caption = "Graphics: Job Nmadu | @JobNmadu  \n Source: https://covid19.ncdc.gov.ng/")
+ #ggsave("img/numstatesFFx.png", plot = plotggx)
+ 
+ invisible(dev.off())
+```
+
+![](img/numstatesFFx.png)
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+
+png("img/numstatesFFf.png", width=1200, height=800)
+
+ggplot(ForecastontheLastDay) +
+ aes(x = Model, fill = Model, weight = Forecast) +
+ geom_bar() +
+ scale_fill_hue(direction = 1) +
+ labs(x = "Model", y = "Forecast on the last day") +
+ theme_minimal() +
+  coord_flip()+
+ theme(legend.position = "none")+
+   labs(title = "\n  \n",
+        subtitle = " ",
+        caption = "Graphics: Job Nmadu | @JobNmadu  \n Source: https://covid19.ncdc.gov.ng/")
+#ggsave("img/numstatesFFf.png", plot = plotggf)
+
+invisible(dev.off())
+```
+
+![](img/numstatesFFf.png)
