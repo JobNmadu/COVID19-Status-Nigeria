@@ -94,13 +94,13 @@ invisible(dev.off())
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
-Linear <-  lm(Case ~      Day, data = niz)
-Semilog <- lm(Case ~      log(Day), data = niz)
-Growth <-  lm(log(Case+1) ~ Day, data = niz)
-Null  <- lm(Case ~ bs(Day, knots = NULL), data = niz)
-Knotss <- lm(Case ~ bs(Day, knots = c(30, 247, 420)), data = niz)
-Smooth  <- smooth.spline(niz$Day, niz$Case)
-ARIMA  <- forecast::auto.arima(niz$Case)
+Linear <-  lm(Total ~      Series, data = DDPtable)
+Semilog <- lm(Total ~      log(Series), data = DDPtable)
+Growth <-  lm(log(Total) ~ Series, data = DDPtable)
+Null  <- lm(Total ~ bs(Series, knots = NULL), data = DDPtable)
+Knotss <- lm(Total ~ bs(Series, knots = c(30, 247, 420)), data = DDPtable)
+Smooth  <- smooth.spline(DDPtable$Series, DDPtable$Total)
+ARIMA  <- forecast::auto.arima(DDPtable$Total)
 
 Linear1 <- huxtable::huxreg("Linear" = Linear,
                          "Semilog" = Semilog,
@@ -113,11 +113,10 @@ Linear1 <- huxtable::huxreg("Linear" = Linear,
                             `**` = 0.05, '*' = 0.1), statistics = NULL)
 ```
 
-`r Linear1`
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
-DD <- as.data.frame(niz)
+DD <- as.data.frame(DDPtable)
 Linears <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = Linear, K = 2, Name = "Linear", Form = "LM", kutuf = 0, TTy = "Number")
 Semilogs <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = Semilog, K = 2, Name = "Semilog", Form = "LM", kutuf = 0, TTy = "Number")
 Growths <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = Growth, K = 2, Name = "Growth", Form = "LM", kutuf = 0, TTy = "Number")
@@ -131,7 +130,6 @@ XYZ <- knitr::kable(SelectionCriteria, "html")
 #kableExtra::kable_styling(XYZ, "striped", position = "center")
 ```
 
-`r XYZ`
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
@@ -196,6 +194,9 @@ fita  <- forecast::auto.arima(niz$Case)
 fitaf <- fita[["fitted"]]
 fitpi <- lm(Case ~ Day + I(Day^2), data = niz)
 fitpif <- fitted.values(fitpi)
+Linear <-  lm(Case ~      Day, data = niz)
+Semilog <- lm(Case ~      log(Day), data = niz)
+Growth <-  lm(log(Case+1) ~ Day, data = niz)
 RMSE <- c('Without knots' = performance_rmse(fit0),
 'Smooth Spline'           = performance_rmse(fit1),
 'With knots'              = performance_rmse(fit),
@@ -222,7 +223,8 @@ kk60 <- lm(Case~fitf + fit0f + fit1f + fitpif + fitaf, data = niz)
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
-svglite::svglite("img/state07.svg", width = 14, height = 10)
+#svglite::svglite("img/state07.svg", width = 14, height = 10)
+png("img/state07.png", width=1200, height=800)
 
 plot(niz$Day, fitted.values(fit), main = " ",
      col = "red", type = "l", lwd = 2,
@@ -238,32 +240,35 @@ lines(fitted.values(fitpi), col = "skyblue", lwd = 2)
 lines(kk30, col="green")
 lines(fitted.values(kk40), col = "purple", lwd = 2)
 lines(fitted.values(kk60), col = "magenta", lwd = 2)
+lines(fitted.values(Linear), col = "forestgreen", lwd = 2)
+lines(fitted.values(Semilog), col = "pink", lwd = 2)
+lines(fitted.values(Growth), col = "gold", lwd = 2)
 lines(P_weight, col="darkorange")
 
 #adding cutpoints
 abline(v = BREAKS, lwd = 2, lty = 2, col = "black")
-DDf <- c("Observed", "Spline-with knots", 
+DDf <- c("Observed", "Linear", "Semilog", "Growth", "Spline-with knots", 
          "Spline-without knots", "Smooth Spline",
          "ARIMA", "Polynomial", "Essembled with equal weight",
          "Essembled based on weight", "Essembled based on summed weight",
          "Essembled based on weight of fit", "Cut points")
-
 legend("topleft", 
        inset = c(0, 0),  bty = "n", x.intersp = 0.5,
        xjust = 0, yjust = 0,
-       legend = DDf, col = c("brown", "red", "blue", "cyan",
-                             "yellow", "skyblue", "green", "purple",
-                             "magenta", "darkorange", "black"),
-       lwd = 2, cex = 0.75, xpd = TRUE, horiz = FALSE)
+       legend = DDf, col = c("brown", "forestgreen", "pink", "gold", "red",
+                             "blue", "cyan", "yellow", "skyblue", "green",
+                             "purple", "magenta", "darkorange", "black"),
+       lwd = 2, cex = 1.50, xpd = TRUE, horiz = FALSE)
 
 invisible(dev.off())
 ```
 
-![](img/state07.svg)
+![](img/state07.png)
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
-FITS <- huxtable::huxreg("Spline without knots" = fit0,
+FITS <- huxtable::huxreg("Linear" = Linear, "Semilog" = Semilog, 
+                         "Growth" = Growth, "Spline without knots" = fit0,
                          "Spline with knots" = fit,
                          # "Smooth spline" = fit1,
                           "ARIMA" = fita,
@@ -275,7 +280,6 @@ FITS <- huxtable::huxreg("Spline without knots" = fit0,
                   statistics = NULL)
 ```
 
-`r FITS`
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
@@ -289,12 +293,14 @@ ARIMA <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = fita, K = 2,  N
 'Essembled on weight' <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = kk40, K = 2, Name = "EssemWet", Form = "LM", kutuf = 0, TTy = "Number")
 'Essembled summed weight' <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = kk60, K = 2, Name = "Nil", Form = "LM", kutuf = 0, TTy = "Number")
 'Essembled weight of fit' <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = P_weight, K = 2, Name = "Values", Form = "N-LM", kutuf = 0, TTy = "Number")
-SelectionCriteria <- as.data.frame(cbind(`Spline with knots`, `Spline without knots`, `Smooth spline`, ARIMA, `Quardratic polynomial`,`Essembled equal weight`, `Essembled on weight`, `Essembled summed weight`, `Essembled weight of fit` ))
-XYZ <- knitr::kable(SelectionCriteria, "html")
+Linears <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = Linear, K = 2, Name = "Linear", Form = "LM", kutuf = 0, TTy = "Number")
+Semilogs <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = Semilog, K = 2, Name = "Semilog", Form = "LM", kutuf = 0, TTy = "Number")
+Growths <- ModelSelection(Observed = DD, yvalue = DD[, 2], Model = Growth, K = 2, Name = "Growth", Form = "LM", kutuf = 0, TTy = "Number")
+SelectionCriteria <- as.data.frame(cbind(Linears, Semilogs, Growths, `Spline with knots`, `Spline without knots`, `Smooth spline`, ARIMA, `Quardratic polynomial`,`Essembled equal weight`, `Essembled on weight`, `Essembled summed weight`, `Essembled weight of fit` ))
+XYZ1 <- knitr::kable(SelectionCriteria, "html")
 #kableExtra::kable_styling(XYZ, "striped", position = "center")
 ```
 
-`r XYZ`
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE, eval = FALSE}
 
@@ -332,12 +338,21 @@ check_model(fitpi)
                             h = length(Dsf))
  kk61 <- forecast::forecast(fitted.values(kk60),
                             h = length(Dsf))
+ LinearF  <- forecast::forecast(fitted.values(Linear), 
+                           h = length(niz$Date))
+ SemilogF <- forecast::forecast(fitted.values(Semilog),
+                           h = length(niz$Date))
+ GrowthF  <- forecast::forecast(fitted.values(Growth),
+                           h = length(niz$Date))
  
- KK <- as.data.frame(cbind("Date" = Dsf,"Day" = 1:length(Dsf), "Without Knots" = kk0[["mean"]], "Smooth spline" = kk1[["mean"]],  "With Knots" = kk[["mean"]], "Polynomial" = kk10[["mean"]], "Lower ARIMA" = kk2[["lower"]], "Upper ARIMA" = kk2[["upper"]]))
+ KK <- as.data.frame(cbind("Date" = Dsf,"Day" = 1:length(Dsf), "Linear" = LinearF[["mean"]], "Semilog" = SemilogF[["mean"]], "Growth" = GrowthF[["mean"]], "Without Knots" = kk0[["mean"]], "Smooth spline" = kk1[["mean"]],  "With Knots" = kk[["mean"]], "Polynomial" = kk10[["mean"]], "Lower ARIMA" = kk2[["lower"]], "Upper ARIMA" = kk2[["upper"]]))
 
- KK <- KK[,-c(7,9)]
-names(KK) <- c("Date", "Day", "Without Knots", "Smooth spline", "With Knots", "Polynomial", "Lower ARIMA", "Upper ARIMA") 
+ KK <- KK[,-c(10,12)]
+names(KK) <- c("Date", "Day", "Linear", "Semilog", "Growth", "Without Knots", "Smooth spline", "With Knots", "Polynomial", "Lower ARIMA", "Upper ARIMA") 
 
+LL <- sum(KK$Linear)
+SSM <- sum(KK$Semilog)
+GGX <- sum(KK$Growth)
 WK   <- sum(KK$`Without Knots`)
 WKs  <- sum(KK$`With Knots`)   
 SMsp <- sum(KK$`Smooth spline`)
@@ -347,7 +362,7 @@ POL  <- sum(KK$Polynomial)
 
 KK$Date <- as.Date(KK$Date)
 
-DDf <- c("Without knots", "Smooth Spline", 
+DDf <- c("Linear", "Semilog", "Growth", "Without knots", "Smooth Spline", 
           "With knots", "Quadratic Polynomial",
          "Lower ARIMA", "Upper ARIMA",
          "Essembled with equal weight",
@@ -379,7 +394,7 @@ RMSE_f <- as.data.frame(cbind("Model" = DDf,
                               "Confirmed cases" =
                                 comma(round(Forcasts, 0))))
 
-ForecastontheLastDay <- as.data.frame(t(KK[length(KK$Date), c(3:12)]))
+ForecastontheLastDay <- as.data.frame(t(KK[length(KK$Date), c(3:15)]))
 ForecastontheLastDay <- cbind(DDf, ForecastontheLastDay)
 names(ForecastontheLastDay) <- c("Model", "Forecast")
 ForecastontheLastDay <- ForecastontheLastDay[order(-ForecastontheLastDay$Forecast),]
@@ -387,9 +402,10 @@ ForecastontheLastDay$Model <- factor(ForecastontheLastDay$Model, levels = Foreca
 ```
 
 
-```{r echo = FALSE, message = FALSE, warning = FALSE}
+```{r echo = FALSE, message = FALSE, warning = FALSE, eval = FALSE}
 
-svglite::svglite("img/state08.svg", width = 10, height = 7)
+#svglite::svglite("img/state08.svg", width = 10, height = 7)
+png("img/state08.png", width=1200, height=800)
 plot(KK$Day, KK$`Without Knots`, main = " ",
       col = "red", type = "l", lwd = 2,
       xlab = forcaststarts,
@@ -413,16 +429,16 @@ plot(KK$Day, KK$`Without Knots`, main = " ",
                               "skyblue", "green",
                             "yellow",  "orange",
                             "black", "pink"),
-        lwd = 2, cex = 0.75, xpd = TRUE, horiz = FALSE)
+        lwd = 2, cex = 1.50, xpd = TRUE, horiz = FALSE)
  
  invisible(dev.off())
 ```
 
-![](img/state08.svg)
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
-svglite::svglite("img/state09.svg", width = 10, height = 7)
- 
+
+#svglite::svglite("img/state09.svg", width = 10, height = 7)
+png("img/state09.png", width=1200, height=800) 
 KK1 <- KK %>%
    pivot_longer(-c(Date, Day), names_to = "Models",
                 values_to = "Forecast")
@@ -440,7 +456,7 @@ KK1$Date <- as.Date(KK1$Date)
  invisible(dev.off())
 ```
 
-![](img/state09.svg)
+![](img/state09.png)
 
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
@@ -466,13 +482,13 @@ invisible(dev.off())
 ![](img/numstatesFFfs.png)
 
 
-```{r echo = FALSE, message = FALSE, warning = FALSE}
+```{r echo = FALSE, message = FALSE, warning = FALSE, eval = FALSE}
 
 Linear <-  lm(Case ~      Day, data = niz)
 Semilog <- lm(Case ~      log(Day), data = niz)
 Growth <-  lm(log(Case+1) ~ Day, data = niz)
 
-Linear1 <- huxtable::huxreg("Linear" = Linear,
+Linear11 <- huxtable::huxreg("Linear" = Linear,
                          "Semilog" = Semilog,
                          "Growth" = Growth,
                           stars = c(`****` = 0.001, `***` = 0.01,
@@ -521,9 +537,10 @@ LinearFF1$Date <- as.Date(LinearFF1$Date)
         subtitle = " ",
         caption = "Graphics: Job Nmadu | @JobNmadu  \n Source: https://covid19.ncdc.gov.ng/")
 ggsave("img/LinearG1.png", plot = LinearG1)
+
+invisible(dev.off())
 ```
 
-`r Linear1`
 
 ![](img/LinearG.png)  
 
@@ -573,7 +590,7 @@ lower = min(niz$Case)
                             h = length(Dsf))
   kk61c <- constrained_forecast(Model = kk61F, lower, upper)
  
- KK <- as.data.frame(cbind("Date" = Dsf, "Day" = 1:length(Dsf))) 
+ KK <- as.data.frame(cbind("Date" = Dsf, "Day" = 1:length(Dsf), "Linear" = LinearF[["mean"]], "Semilog" = SemilogF[["mean"]],  "Growth" = GrowthF[["mean"]])) 
  KK$`Smooth spline 80%` = kk1c$Lower80
  KK$`Smooth spline 95%` = kk1c$Upper95
  KK$`Without knots 80%` = kk0c$Lower80
@@ -652,6 +669,55 @@ ForecastontheLastDay$Model <- factor(ForecastontheLastDay$Model, levels = Foreca
 ```
 
 
+```{r echo = FALSE, message = FALSE, warning = FALSE, eval = FALSE}
+
+#svglite::svglite("img/state08.svg", width = 10, height = 7)
+png("img/numstatesFFx0.png", width=1200, height=800)
+
+DDfk <- c("Without knots", "Smooth Spline", 
+          "With knots", "Quadratic Polynomial", "ARIMA",
+         "Essembled with equal weight",
+         "Essembled based on weight",
+         "Essembled based on summed weight",
+         "Essembled based on weight of fit" )
+plot(KK$Day, KK$`Without knots 80%`, main = " ",
+      col = "red", type = "l", lwd = 2,
+      xlab = forcaststarts,
+      ylab = "COVID-19 daliy forecast")
+ grid(10,20,lty=1,lwd=1)
+ plot(KK$Day, KK$`Without knots 95%`, col = "red", lwd = 2)
+ lines(KK$`Smooth spline 80%`, col = "blue", lwd = 2)
+ lines(KK$`Smooth spline 95%`, col = "blue", lwd = 2)
+ lines(KK$`With Knots 80%`, col = "cyan", lwd = 2)
+ lines(KK$`With Knots 96%`, col = "cyan", lwd = 2)
+ lines(KK$`Polynomial 80%`, col = "skyblue", lwd = 2)
+ lines(KK$`Polynomial 95%`, col = "skyblue", lwd = 2)
+ lines(KK$`ARIMA 80%`, col = "green", lwd = 2)
+ lines(KK$`ARIMA 95%`, col = "green", lwd = 2)
+ lines(KK$`Essembled with equal weight 80%`, col = "orange",
+       lwd = 2)
+ lines(KK$`Essembled with equal weight 95%`, col = "orange",
+       lwd = 2)
+ lines(KK$`Essembled based on weight 80%`, 
+       col = "black", lwd = 2)
+ lines(KK$`Essembled based on weight 95%`, 
+       col = "black", lwd = 2)
+ lines(KK$`Essembled based on weight of fit 80%`,
+       col = "pink", lwd = 2)
+ lines(KK$`Essembled based on weight of fit 95%`,
+       col = "pink", lwd = 2)
+ legend("topleft", 
+        inset = c(0, 0),  bty = "n", x.intersp = 0.5,
+        xjust = 0, yjust = 0,
+        legend = DDfk, col = c("red", "blue", "cyan",
+                              "skyblue", "green",  "orange",
+                              "black", "pink"),
+        lwd = 2, cex = 1.50, xpd = TRUE, horiz = FALSE)
+ 
+ invisible(dev.off())
+```
+
+
 ```{r echo = FALSE, message = FALSE, warning = FALSE}
 
 png("img/numstatesFFx.png", width=1200, height=800)
@@ -697,3 +763,11 @@ invisible(dev.off())
 ```
 
 ![](img/numstatesFFf.png)
+
+`r Linear1`  
+
+`r XYZ`  
+
+`r FITS`  
+
+`r XYZ1`  
